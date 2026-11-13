@@ -253,6 +253,17 @@ void TwoTreesSK1Panel::ApplyResult(std::size_t index, const std::string& operati
             std::ostringstream summary;
             bool has_detail = false;
 
+            if (status.contains("webhooks") && status["webhooks"].is_object() &&
+                status["webhooks"].contains("state") && status["webhooks"]["state"].is_string()) {
+                const std::string klipper_state = status["webhooks"]["state"].get<std::string>();
+                if (klipper_state != "ready") {
+                    summary << "Klipper: " << klipper_state;
+                    if (status["webhooks"].contains("message") && status["webhooks"]["message"].is_string())
+                        summary << " — " << status["webhooks"]["message"].get<std::string>();
+                    has_detail = true;
+                }
+            }
+
             if (status.contains("print_stats") && status["print_stats"].is_object()) {
                 const auto& print_stats = status["print_stats"];
                 if (print_stats.contains("state") && print_stats["state"].is_string()) {
