@@ -325,7 +325,7 @@ void TwoTreesSK1Panel::ApplyResult(std::size_t index, const std::string& operati
                 const auto& print_stats = status["print_stats"];
                 if (print_stats.contains("state") && print_stats["state"].is_string()) {
                     card.print_state = print_stats["state"].get<std::string>();
-                    summary << "State: " << card.print_state;
+                    summary << (has_detail ? " | " : "") << "State: " << card.print_state;
                     has_detail = true;
                 }
                 if (print_stats.contains("filename") && print_stats["filename"].is_string() &&
