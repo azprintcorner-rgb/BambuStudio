@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
