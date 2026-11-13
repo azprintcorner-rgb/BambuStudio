@@ -44,6 +44,9 @@ private:
         wxButton* cancel{nullptr};
         std::string uploaded_filename;
         bool busy{false};
+        bool moonraker_connected{false};
+        bool klippy_ready{false};
+        std::string print_state;
     };
 
     void BuildCard(std::size_t index, wxSizer* parent_sizer);
@@ -58,6 +61,7 @@ private:
                       std::function<MoonrakerHttpResult(const MoonrakerHttpClient&)> operation,
                       std::function<void(const MoonrakerHttpResult&)> on_success = {});
     void SetBusy(std::size_t index, bool busy);
+    void UpdateControls(std::size_t index);
     void ApplyResult(std::size_t index, const std::string& operation_name,
                      const MoonrakerHttpResult& result);
 
