@@ -2,6 +2,7 @@
 
 #include <wx/app.h>
 #include <wx/filedlg.h>
+#include <wx/font.h>
 #include <wx/sizer.h>
 #include <wx/statbox.h>
 #include <wx/msgdlg.h>
@@ -40,7 +41,7 @@ TwoTreesSK1Panel::TwoTreesSK1Panel(wxWindow* parent)
     SetSizer(root);
     Layout();
 
-    Bind(wxEVT_TIMER, &TwoTreesSK1Panel::OnPollTimer, this, m_poll_timer.GetId());
+    Bind(wxEVT_TIMER, &TwoTreesSK1Panel::OnPollTimer, this);
     Bind(wxEVT_SHOW, [this](wxShowEvent& event) {
         if (event.IsShown()) {
             m_poll_timer.Start(10000);
@@ -93,8 +94,8 @@ void TwoTreesSK1Panel::BuildCard(std::size_t index, wxSizer* parent_sizer)
         RunOperation(index, "Resume", [](const MoonrakerHttpClient& client) { return client.ResumePrint(); });
     });
     card.cancel->Bind(wxEVT_BUTTON, [this, index](wxCommandEvent&) {
-        const wxString prompt = wxString::Format(
-            "Cancel the current print on %s?", wxString::FromUTF8(card.config.display_name));
+        const wxString prompt = "Cancel the current print on " +
+            wxString::FromUTF8(card.config.display_name) + "?";
         if (wxMessageBox(prompt, "Confirm stop", wxYES_NO | wxNO_DEFAULT | wxICON_WARNING, this) == wxYES) {
             RunOperation(index, "Stop", [](const MoonrakerHttpClient& client) { return client.CancelPrint(); });
         }
