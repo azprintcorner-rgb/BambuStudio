@@ -52,8 +52,8 @@ struct MoonrakerPrinterConfig
     static std::vector<MoonrakerPrinterConfig> DefaultPrinters()
     {
         return {
-            {"twotrees-sk1-1", "TwoTrees SK1 (1)", "http://192.168.68.54"},
-            {"twotrees-sk1-2", "TwoTrees SK1 (2)", "http://192.168.68.53"}
+            {"twotrees-sk1-1", "TwoTrees SK1 (1)", "http://192.168.68.54:7125"},
+            {"twotrees-sk1-2", "TwoTrees SK1 (2)", "http://192.168.68.53:7125"}
         };
     }
 };
