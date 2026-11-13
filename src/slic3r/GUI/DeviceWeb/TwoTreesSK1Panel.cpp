@@ -212,7 +212,9 @@ void TwoTreesSK1Panel::SetBusy(std::size_t index, bool busy)
 void TwoTreesSK1Panel::UpdateControls(std::size_t index)
 {
     auto& card = m_printers[index];
-    const bool active_print = card.print_state == "printing" || card.print_state == "paused";
+    const bool active_print = card.print_state == "printing" || card.print_state == "paused" ||
+                              card.print_state == "starting" || card.print_state == "pausing" ||
+                              card.print_state == "resuming" || card.print_state == "cancelling";
     card.configure->Enable(!card.busy && !active_print);
     card.refresh->Enable(!card.busy);
 
@@ -289,10 +291,10 @@ void TwoTreesSK1Panel::ApplyResult(std::size_t index, const std::string& operati
         card.print_state = "unknown";
     }
     card.connection->SetLabel("Connected");
-    if (operation_name == "Start print") card.print_state = "printing";
-    else if (operation_name == "Pause") card.print_state = "paused";
-    else if (operation_name == "Resume") card.print_state = "printing";
-    else if (operation_name == "Stop") card.print_state = "cancelled";
+    if (operation_name == "Start print") card.print_state = "starting";
+    else if (operation_name == "Pause") card.print_state = "pausing";
+    else if (operation_name == "Resume") card.print_state = "resuming";
+    else if (operation_name == "Stop") card.print_state = "cancelling";
 
     if (result.data.is_object() && result.data.contains("result") &&
         result.data["result"].is_object() && result.data["result"].contains("klippy_state") &&
