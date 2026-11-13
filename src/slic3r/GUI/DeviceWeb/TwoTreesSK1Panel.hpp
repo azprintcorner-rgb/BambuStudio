@@ -8,6 +8,7 @@
 #include <wx/event.h>
 #include <wx/panel.h>
 #include <wx/stattext.h>
+#include <wx/statbox.h>
 #include <wx/timer.h>
 #include <wx/weakref.h>
 
@@ -30,8 +31,10 @@ private:
     struct PrinterCard
     {
         MoonrakerPrinterConfig config;
+        wxStaticBox* group_box{nullptr};
         wxStaticText* connection{nullptr};
         wxStaticText* details{nullptr};
+        wxButton* configure{nullptr};
         wxButton* refresh{nullptr};
         wxButton* upload{nullptr};
         wxButton* start{nullptr};
@@ -43,6 +46,8 @@ private:
     };
 
     void BuildCard(std::size_t index, wxSizer* parent_sizer);
+    void ConfigurePrinter(std::size_t index);
+    void SavePrinterConfigs();
     void RefreshPrinter(std::size_t index);
     void UploadGcode(std::size_t index);
     void StartPrint(std::size_t index);
