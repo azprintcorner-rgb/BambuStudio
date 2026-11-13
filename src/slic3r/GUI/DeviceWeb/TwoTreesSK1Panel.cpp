@@ -98,7 +98,9 @@ void TwoTreesSK1Panel::BuildCard(std::size_t index, wxSizer* parent_sizer)
     status_row->Add(card.details, 1, wxALIGN_CENTER_VERTICAL);
     group->Add(status_row, 0, wxEXPAND | wxALL, FromDIP(8));
 
-    auto* buttons = new wxBoxSizer(wxHORIZONTAL);
+    auto* buttons = new wxBoxSizer(wxVERTICAL);
+    auto* primary_buttons = new wxBoxSizer(wxHORIZONTAL);
+    auto* print_buttons = new wxBoxSizer(wxHORIZONTAL);
     card.configure = new wxButton(this, wxID_ANY, "Configure");
     card.refresh = new wxButton(this, wxID_ANY, "Refresh");
     card.upload = new wxButton(this, wxID_ANY, "Upload G-code");
@@ -106,8 +108,12 @@ void TwoTreesSK1Panel::BuildCard(std::size_t index, wxSizer* parent_sizer)
     card.pause = new wxButton(this, wxID_ANY, "Pause");
     card.resume = new wxButton(this, wxID_ANY, "Resume");
     card.cancel = new wxButton(this, wxID_ANY, "Stop");
-    for (auto* button : {card.configure, card.refresh, card.upload, card.start, card.pause, card.resume, card.cancel})
-        buttons->Add(button, 0, wxRIGHT, FromDIP(6));
+    for (auto* button : {card.configure, card.refresh, card.upload, card.start})
+        primary_buttons->Add(button, 0, wxRIGHT, FromDIP(6));
+    for (auto* button : {card.pause, card.resume, card.cancel})
+        print_buttons->Add(button, 0, wxRIGHT, FromDIP(6));
+    buttons->Add(primary_buttons, 0, wxBOTTOM, FromDIP(6));
+    buttons->Add(print_buttons, 0);
     group->Add(buttons, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(8));
     parent_sizer->Add(group, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(12));
 
@@ -137,12 +143,12 @@ void TwoTreesSK1Panel::ConfigurePrinter(std::size_t index)
 
     auto& card = m_printers[index];
     wxTextEntryDialog name_dialog(this, "Printer display name:", "Configure TwoTrees SK1",
-                                  card.config.display_name);
+                                  wxString::FromUTF8(card.config.display_name));
     if (name_dialog.ShowModal() != wxID_OK)
         return;
 
     wxTextEntryDialog url_dialog(this, "Moonraker URL (example: http://192.168.68.54:7125):",
-                                 "Configure TwoTrees SK1", card.config.base_url);
+                                 "Configure TwoTrees SK1", wxString::FromUTF8(card.config.base_url));
     if (url_dialog.ShowModal() != wxID_OK)
         return;
 
@@ -157,9 +163,9 @@ void TwoTreesSK1Panel::ConfigurePrinter(std::size_t index)
     }
 
     card.config = std::move(updated);
-    card.group_box->SetLabel(card.config.display_name);
+    card.group_box->SetLabel(wxString::FromUTF8(card.config.display_name));
     card.connection->SetLabel("Not checked");
-    card.details->SetLabel(card.config.base_url);
+    card.details->SetLabel(wxString::FromUTF8(card.config.base_url));
     card.uploaded_filename.clear();
     SavePrinterConfigs();
     RefreshPrinter(index);
