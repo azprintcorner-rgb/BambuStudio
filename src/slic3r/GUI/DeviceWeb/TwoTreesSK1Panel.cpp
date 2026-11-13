@@ -11,6 +11,7 @@
 #include <wx/msgdlg.h>
 #include <wx/textdlg.h>
 
+#include <exception>
 #include <filesystem>
 #include <iomanip>
 #include <sstream>
@@ -82,7 +83,7 @@ TwoTreesSK1Panel::TwoTreesSK1Panel(wxWindow* parent)
 
     // Safe startup check: only reads Moonraker status; it never starts a print.
     if (IsShownOnScreen()) {
-        m_poll_timer.Start(10000);
+        m_poll_timer.Start(2000);
         for (std::size_t i = 0; i < m_printers.size(); ++i)
             RefreshPrinter(i);
     }
