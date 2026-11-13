@@ -212,7 +212,8 @@ void TwoTreesSK1Panel::SetBusy(std::size_t index, bool busy)
 void TwoTreesSK1Panel::UpdateControls(std::size_t index)
 {
     auto& card = m_printers[index];
-    card.configure->Enable(!card.busy);
+    const bool active_print = card.print_state == "printing" || card.print_state == "paused";
+    card.configure->Enable(!card.busy && !active_print);
     card.refresh->Enable(!card.busy);
 
     const bool idle = card.print_state.empty() || card.print_state == "standby" ||
