@@ -127,7 +127,8 @@ MoonrakerHttpResult MoonrakerHttpClient::Request(const std::string& method,
                 const auto& error = result.data["error"];
                 result.message = error.is_string() ? error.get<std::string>() : error.dump();
             } else {
-                result.message = response.reason().to_string();
+                const auto reason = response.reason();
+                result.message.assign(reason.data(), reason.size());
             }
             return result;
         }
