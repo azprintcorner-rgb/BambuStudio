@@ -18,6 +18,7 @@
 #include <string>
 
 class wxSizer;
+class wxStaticBox;
 
 namespace Slic3r { namespace GUI {
 
