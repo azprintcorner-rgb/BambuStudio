@@ -181,8 +181,13 @@ void TwoTreesSK1Panel::SavePrinterConfigs()
     nlohmann::json saved = nlohmann::json::array();
     for (const auto& card : m_printers)
         saved.push_back(card.config);
-    wxGetApp().app_config->set("twotrees_sk1_printers", saved.dump());
-    wxGetApp().app_config->save();
+    try {
+        wxGetApp().app_config->set("twotrees_sk1_printers", saved.dump());
+        wxGetApp().app_config->save();
+    } catch (const std::exception& exception) {
+        wxMessageBox(wxString::FromUTF8(exception.what()), "Could not save printer settings",
+                     wxOK | wxICON_WARNING, this);
+    }
 }
 
 void TwoTreesSK1Panel::SetBusy(std::size_t index, bool busy)
