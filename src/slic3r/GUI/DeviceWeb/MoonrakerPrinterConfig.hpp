@@ -33,10 +33,9 @@ struct MoonrakerPrinterConfig
         // Only HTTP(S) endpoints are accepted. Credentials must not be embedded
         // in URLs, and path/query/fragment components are not valid base URLs.
         const bool http = base_url.rfind("http://", 0) == 0;
-        const bool https = base_url.rfind("https://", 0) == 0;
-        if (!http && !https) return fail("URL must start with http:// or https://.");
+        if (!http) return fail("URL must start with http://. HTTPS is not supported by this local Moonraker client yet.");
 
-        const std::size_t authority_start = http ? 7 : 8;
+        const std::size_t authority_start = 7;
         const std::string authority = base_url.substr(authority_start);
         if (authority.empty()) return fail("URL host is missing.");
         if (authority.find_first_of("/?#@") != std::string::npos)
