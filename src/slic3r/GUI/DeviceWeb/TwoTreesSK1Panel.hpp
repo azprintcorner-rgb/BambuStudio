@@ -14,6 +14,8 @@
 #include <functional>
 #include <string>
 
+class wxSizer;
+
 namespace Slic3r { namespace GUI {
 
 class TwoTreesSK1Panel : public wxPanel
