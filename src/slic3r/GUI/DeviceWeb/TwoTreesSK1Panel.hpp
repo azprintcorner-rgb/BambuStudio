@@ -5,6 +5,7 @@
 #include "MoonrakerHttpClient.hpp"
 
 #include <wx/button.h>
+#include <wx/event.h>
 #include <wx/panel.h>
 #include <wx/stattext.h>
 #include <wx/timer.h>
