@@ -165,6 +165,13 @@ void TwoTreesSK1Panel::ConfigurePrinter(std::size_t index)
                      wxOK | wxICON_ERROR, this);
         return;
     }
+    for (std::size_t other = 0; other < m_printers.size(); ++other) {
+        if (other != index && m_printers[other].config.base_url == updated.base_url) {
+            wxMessageBox("Each TwoTrees SK1 profile must point to a different Moonraker URL.",
+                         "Duplicate printer address", wxOK | wxICON_ERROR, this);
+            return;
+        }
+    }
 
     card.config = std::move(updated);
     card.group_box->SetLabel(wxString::FromUTF8(card.config.display_name.c_str()));
