@@ -7,6 +7,7 @@
 #include <wx/button.h>
 #include <wx/panel.h>
 #include <wx/stattext.h>
+#include <wx/timer.h>
 #include <wx/weakref.h>
 
 #include <array>
@@ -44,6 +45,7 @@ private:
     void RefreshPrinter(std::size_t index);
     void UploadGcode(std::size_t index);
     void StartPrint(std::size_t index);
+    void OnPollTimer(wxTimerEvent& event);
     void RunOperation(std::size_t index,
                       const std::string& operation_name,
                       std::function<MoonrakerHttpResult(const MoonrakerHttpClient&)> operation,
@@ -53,6 +55,7 @@ private:
                      const MoonrakerHttpResult& result);
 
     std::array<PrinterCard, 2> m_printers;
+    wxTimer m_poll_timer;
 };
 
 }} // namespace Slic3r::GUI
