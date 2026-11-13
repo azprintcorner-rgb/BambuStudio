@@ -11,6 +11,16 @@ on:
       - "src/slic3r/CMakeLists.txt"
       - "build_win.bat"
       - ".github/workflows/twotrees-sk1-windows.yml"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "src/slic3r/GUI/DeviceWeb/**"
+      - "src/slic3r/GUI/MainFrame.cpp"
+      - "src/slic3r/GUI/MainFrame.hpp"
+      - "src/slic3r/CMakeLists.txt"
+      - "build_win.bat"
+      - ".github/workflows/twotrees-sk1-windows.yml"
   workflow_dispatch:
 
 permissions:
