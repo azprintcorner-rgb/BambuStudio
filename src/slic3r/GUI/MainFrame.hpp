@@ -56,6 +56,7 @@ class MainFrame;
 class ParamsDialog;
 class FilamentGroupPopup;
 class DeviceWebPage;
+class TwoTreesSK1Panel;
 
 enum QuickSlice
 {
@@ -256,6 +257,7 @@ public:
         toDebugTool        = 8,
         tpFilamentManager  = 9,
         tpWebDevice        = 10,
+        tpTwoTreesSK1      = 11,
     };
 
     //BBS: add slice&&print status update logic
@@ -426,6 +428,7 @@ public:
 
     CalibrationPanel*     m_calibration{ nullptr };
     DeviceWebPage*        m_web_device{ nullptr };
+    TwoTreesSK1Panel*     m_two_trees_sk1{ nullptr };
     WebViewPanel*         m_webview { nullptr };
     PrinterWebView*       m_printer_view{nullptr};
     wxLogWindow*          m_log_window { nullptr };
