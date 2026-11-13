@@ -45,6 +45,26 @@ struct MoonrakerPrinterConfig
             }))
             return fail("URL cannot contain whitespace or control characters.");
 
+        const auto colon = authority.rfind(':');
+        const std::string host = colon == std::string::npos ? authority : authority.substr(0, colon);
+        if (host.empty() || host.find(':') != std::string::npos)
+            return fail("URL host is missing or IPv6 is not supported.");
+        if (colon != std::string::npos) {
+            const std::string port = authority.substr(colon + 1);
+            if (port.empty() || !std::all_of(port.begin(), port.end(), [](unsigned char c) {
+                    return std::isdigit(c) != 0;
+                }))
+                return fail("Moonraker port must be a number between 1 and 65535.");
+            unsigned int port_number = 0;
+            for (unsigned char digit : port) {
+                port_number = port_number * 10 + static_cast<unsigned int>(digit - '0');
+                if (port_number > 65535)
+                    return fail("Moonraker port must be a number between 1 and 65535.");
+            }
+            if (port_number == 0)
+                return fail("Moonraker port must be a number between 1 and 65535.");
+        }
+
         if (reason) reason->clear();
         return true;
     }
