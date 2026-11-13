@@ -77,6 +77,6 @@ This document records the confirmed target setup and integration design. It is n
 
 - Added `MoonrakerPrinterConfig` with two default TwoTrees SK1 profiles and validation.
 - Added a reusable synchronous Boost.Beast HTTP client for server info, printer status, G-code upload, print start, pause, resume and cancel. Callers must execute it off the GUI thread. Current transport supports plain HTTP only; HTTPS is rejected explicitly.
-- Added a native "TwoTrees SK1" tab with two independent printer cards, startup status checks, manual refresh, G-code upload and explicit print controls. Upload does not start a print.
+- Added a native "TwoTrees SK1" tab with two independent printer cards, startup status checks, 10-second status polling while the tab is visible, manual refresh, G-code upload and explicit print controls. Upload does not start a print; Stop asks for confirmation.
 - Registered the new sources in the DeviceWeb CMake source list and added the tab to MainFrame.
 - The native source has not yet been compiled, unit-tested, or run against either physical printer. Settings persistence, automatic status polling, configurable endpoints, and a Windows installer remain outstanding.
