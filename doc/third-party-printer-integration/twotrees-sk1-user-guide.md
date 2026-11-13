@@ -17,7 +17,7 @@ Use **Configure** on a printer card to change its display name or Moonraker URL.
 2. Export the sliced G-code to a local file.
 3. Open **TwoTrees SK1** in Bambu Studio.
 4. Check that the intended printer card reports Moonraker connected and Klipper ready.
-5. On that same card, choose **Upload G-code** and select the exported file.
+5. On that same card, choose **Upload G-code**, select the exported file, and confirm that it targets this printer.
 6. Press **Start** only after the upload has completed and the selected printer is ready.
 7. Use that card's **Pause**, **Resume**, or **Stop** controls to manage the job.
 
@@ -26,6 +26,7 @@ Uploading a file does not start a print. Stop asks for confirmation. Each card s
 ## Status and limitations
 
 - Status is refreshed every two seconds while the tab is visible, and can also be refreshed manually.
+- Upload and print controls are enabled only when Moonraker is connected and Klipper reports ready. Pause, Resume and Stop are enabled according to the current print state. Printer settings cannot be changed while a print is active.
 - The card displays Klipper state, print state, progress and available nozzle/bed temperatures.
 - This initial integration uploads an exported G-code file; it does not yet send the in-memory sliced plate directly from the Slice/Print button.
 - The initial HTTP transport does not support Moonraker API keys, HTTPS, WebSocket events, file listing, thumbnails, ETA, or camera streaming.
