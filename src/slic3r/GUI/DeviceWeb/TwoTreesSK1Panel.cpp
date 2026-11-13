@@ -4,6 +4,7 @@
 #include <wx/filedlg.h>
 #include <wx/sizer.h>
 #include <wx/statbox.h>
+#include <wx/msgdlg.h>
 
 #include <filesystem>
 #include <thread>
@@ -13,6 +14,7 @@ namespace Slic3r { namespace GUI {
 
 TwoTreesSK1Panel::TwoTreesSK1Panel(wxWindow* parent)
     : wxPanel(parent, wxID_ANY)
+    , m_poll_timer(this)
 {
     SetBackgroundColour(*wxWHITE);
     auto* root = new wxBoxSizer(wxVERTICAL);
@@ -38,9 +40,24 @@ TwoTreesSK1Panel::TwoTreesSK1Panel(wxWindow* parent)
     SetSizer(root);
     Layout();
 
+    Bind(wxEVT_TIMER, &TwoTreesSK1Panel::OnPollTimer, this, m_poll_timer.GetId());
+    Bind(wxEVT_SHOW, [this](wxShowEvent& event) {
+        if (event.IsShown()) {
+            m_poll_timer.Start(10000);
+            for (std::size_t i = 0; i < m_printers.size(); ++i)
+                RefreshPrinter(i);
+        } else {
+            m_poll_timer.Stop();
+        }
+        event.Skip();
+    });
+
     // Safe startup check: only reads Moonraker status; it never starts a print.
-    for (std::size_t i = 0; i < m_printers.size(); ++i)
-        RefreshPrinter(i);
+    if (IsShownOnScreen()) {
+        m_poll_timer.Start(10000);
+        for (std::size_t i = 0; i < m_printers.size(); ++i)
+            RefreshPrinter(i);
+    }
 }
 
 void TwoTreesSK1Panel::BuildCard(std::size_t index, wxSizer* parent_sizer)
@@ -76,7 +93,11 @@ void TwoTreesSK1Panel::BuildCard(std::size_t index, wxSizer* parent_sizer)
         RunOperation(index, "Resume", [](const MoonrakerHttpClient& client) { return client.ResumePrint(); });
     });
     card.cancel->Bind(wxEVT_BUTTON, [this, index](wxCommandEvent&) {
-        RunOperation(index, "Stop", [](const MoonrakerHttpClient& client) { return client.CancelPrint(); });
+        const wxString prompt = wxString::Format(
+            "Cancel the current print on %s?", wxString::FromUTF8(card.config.display_name));
+        if (wxMessageBox(prompt, "Confirm stop", wxYES_NO | wxNO_DEFAULT | wxICON_WARNING, this) == wxYES) {
+            RunOperation(index, "Stop", [](const MoonrakerHttpClient& client) { return client.CancelPrint(); });
+        }
     });
 }
 
@@ -147,6 +168,13 @@ void TwoTreesSK1Panel::ApplyResult(std::size_t index, const std::string& operati
         detail = "Klipper: " + result.data["result"]["klippy_state"].get<std::string>();
     }
     card.details->SetLabel(detail);
+}
+
+void TwoTreesSK1Panel::OnPollTimer(wxTimerEvent& event)
+{
+    (void) event;
+    for (std::size_t i = 0; i < m_printers.size(); ++i)
+        RefreshPrinter(i);
 }
 
 void TwoTreesSK1Panel::RefreshPrinter(std::size_t index)
