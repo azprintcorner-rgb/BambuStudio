@@ -12,6 +12,8 @@
 #include <wx/textdlg.h>
 
 #include <filesystem>
+#include <iomanip>
+#include <sstream>
 #include <thread>
 #include <utility>
 
@@ -230,26 +232,72 @@ void TwoTreesSK1Panel::ApplyResult(std::size_t index, const std::string& operati
     auto& card = m_printers[index];
     if (!result.success) {
         card.connection->SetLabel("Offline / error");
-        card.details->SetLabel(operation_name + ": " + result.message);
+        card.details->SetLabel(wxString::FromUTF8(operation_name + ": " + result.message));
         return;
     }
 
     card.connection->SetLabel("Connected");
     std::string detail = operation_name + " successful";
     if (result.data.is_object() && result.data.contains("printer_status")) {
-        const auto& status = result.data["printer_status"];
-        if (status.contains("result") && status["result"].contains("status") &&
-            status["result"]["status"].contains("print_stats")) {
-            const auto& print_stats = status["result"]["status"]["print_stats"];
-            if (print_stats.contains("state") && print_stats["state"].is_string())
-                detail = "Print state: " + print_stats["state"].get<std::string>();
+        const auto& response = result.data["printer_status"];
+        if (response.contains("result") && response["result"].is_object() &&
+            response["result"].contains("status") && response["result"]["status"].is_object()) {
+            const auto& status = response["result"]["status"];
+            std::ostringstream summary;
+            bool has_detail = false;
+
+            if (status.contains("print_stats") && status["print_stats"].is_object()) {
+                const auto& print_stats = status["print_stats"];
+                if (print_stats.contains("state") && print_stats["state"].is_string()) {
+                    summary << "State: " << print_stats["state"].get<std::string>();
+                    has_detail = true;
+                }
+                if (print_stats.contains("filename") && print_stats["filename"].is_string() &&
+                    !print_stats["filename"].get<std::string>().empty()) {
+                    summary << (has_detail ? " | " : "") << print_stats["filename"].get<std::string>();
+                    has_detail = true;
+                }
+            }
+
+            double progress = -1.0;
+            if (status.contains("display_status") && status["display_status"].is_object() &&
+                status["display_status"].contains("progress") &&
+                status["display_status"]["progress"].is_number()) {
+                progress = status["display_status"]["progress"].get<double>();
+            } else if (status.contains("virtual_sdcard") && status["virtual_sdcard"].is_object() &&
+                       status["virtual_sdcard"].contains("progress") &&
+                       status["virtual_sdcard"]["progress"].is_number()) {
+                progress = status["virtual_sdcard"]["progress"].get<double>();
+            }
+            if (progress >= 0.0) {
+                summary << (has_detail ? " | " : "") << std::fixed << std::setprecision(1)
+                        << (progress * 100.0) << "%";
+                has_detail = true;
+            }
+
+            const auto append_temperature = [&summary, &status, &has_detail](
+                const char* object_name, const char* label) {
+                const auto it = status.find(object_name);
+                if (it == status.end() || !it->is_object() ||
+                    !it->contains("temperature") || !(*it)["temperature"].is_number())
+                    return;
+                summary << (has_detail ? " | " : "") << label << ": "
+                        << std::fixed << std::setprecision(0)
+                        << (*it)["temperature"].get<double>() << " C";
+                has_detail = true;
+            };
+            append_temperature("extruder", "Nozzle");
+            append_temperature("heater_bed", "Bed");
+            if (has_detail)
+                detail = summary.str();
         }
     } else if (result.data.is_object() && result.data.contains("result") &&
                result.data["result"].is_object() &&
-               result.data["result"].contains("klippy_state")) {
+               result.data["result"].contains("klippy_state") &&
+               result.data["result"]["klippy_state"].is_string()) {
         detail = "Klipper: " + result.data["result"]["klippy_state"].get<std::string>();
     }
-    card.details->SetLabel(detail);
+    card.details->SetLabel(wxString::FromUTF8(detail));
 }
 
 void TwoTreesSK1Panel::OnPollTimer(wxTimerEvent& event)
