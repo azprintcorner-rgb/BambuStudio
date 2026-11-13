@@ -1,6 +1,6 @@
 #include "TwoTreesSK1Panel.hpp"
 
-#include "GUI_App.hpp"
+#include "slic3r/GUI/GUI_App.hpp"
 #include "libslic3r/AppConfig.hpp"
 
 #include <wx/app.h>
@@ -89,11 +89,11 @@ TwoTreesSK1Panel::TwoTreesSK1Panel(wxWindow* parent)
 void TwoTreesSK1Panel::BuildCard(std::size_t index, wxSizer* parent_sizer)
 {
     auto& card = m_printers[index];
-    auto* group = new wxStaticBoxSizer(wxVERTICAL, this, card.config.display_name);
+    auto* group = new wxStaticBoxSizer(wxVERTICAL, this, wxString::FromUTF8(card.config.display_name));
     card.group_box = group->GetStaticBox();
     auto* status_row = new wxBoxSizer(wxHORIZONTAL);
     card.connection = new wxStaticText(this, wxID_ANY, "Not checked");
-    card.details = new wxStaticText(this, wxID_ANY, card.config.base_url);
+    card.details = new wxStaticText(this, wxID_ANY, wxString::FromUTF8(card.config.base_url));
     status_row->Add(card.connection, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(12));
     status_row->Add(card.details, 1, wxALIGN_CENTER_VERTICAL);
     group->Add(status_row, 0, wxEXPAND | wxALL, FromDIP(8));
