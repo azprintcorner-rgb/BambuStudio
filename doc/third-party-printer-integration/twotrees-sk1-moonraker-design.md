@@ -27,13 +27,13 @@ These are user-reported successful API checks, not a test performed by the build
 ## User workflow
 
 1. Select a compatible TwoTrees SK1 printer preset and slice as usual.
-2. Open the Device workspace and choose a separate "Third-party / Moonraker" connection.
-3. Add two independent saved printer entries, each with a user-editable display name and base URL.
-4. Test each connection independently using `GET /server/info` and show its own Klipper/Moonraker state.
-5. Upload the sliced G-code to the selected printer's Moonraker `server/files/upload` endpoint.
-6. Only when the user explicitly presses Print, request print start (upload with `print=true`, or upload then call the print-start endpoint).
-7. Poll Moonraker printer objects for state/progress; provide pause, resume and cancel actions.
-8. Switching the selected printer must never redirect an upload or control command to the other printer.
+2. Open the dedicated "TwoTrees SK1" workspace tab.
+3. Keep both configured printer entries visible with independent status and controls.
+4. Test each connection independently using `GET /server/info` and query printer status.
+5. Upload a G-code file to the chosen printer's Moonraker `server/files/upload` endpoint.
+6. Only when the user explicitly presses Start, request print start through `/printer/print/start`.
+7. Refresh printer state on demand and provide pause, resume and stop actions.
+8. Every operation is bound to the card's own immutable printer profile; the other printer's address is never used.
 
 ## API contract
 
@@ -60,8 +60,8 @@ Moonraker API reference: https://moonraker.readthedocs.io/en/latest/web_api/
 
 1. Implement a reusable Moonraker HTTP client and unit tests.
 2. Add a dedicated third-party printer connection model and settings persistence, supporting multiple entries.
-3. Add a Device-workspace panel that is independent of Bambu Lab's DeviceWeb binding.
-4. Wire upload/start/status/pause/resume/cancel to the selected printer only.
+3. Add a native TwoTrees SK1 workspace panel independent of Bambu Lab's DeviceManager and DeviceWeb bindings.
+4. Wire upload/start/status/pause/resume/cancel to each printer card independently.
 5. Build and test on Windows x64 against both real SK1 printers before distributing an installer.
 
 ## Repository architecture notes
@@ -71,3 +71,12 @@ The current source tree already has a DeviceWeb bridge and ViewModel registratio
 ## Important scope note
 
 This document records the confirmed target setup and integration design. It is not a claim that the Device UI, Moonraker client, print controls, or a tested Windows installer already exist. Native source changes must be implemented, compiled, and tested against the exact Bambu Studio source revision before a usable installer can be supplied.
+
+
+## Implementation progress (2026-11-13)
+
+- Added `MoonrakerPrinterConfig` with two default TwoTrees SK1 profiles and validation.
+- Added a reusable synchronous Boost.Beast HTTP client for server info, printer status, G-code upload, print start, pause, resume and cancel. Callers must execute it off the GUI thread. Current transport supports plain HTTP only; HTTPS is rejected explicitly.
+- Added a native "TwoTrees SK1" tab with two independent printer cards, startup status checks, manual refresh, G-code upload and explicit print controls. Upload does not start a print.
+- Registered the new sources in the DeviceWeb CMake source list and added the tab to MainFrame.
+- The native source has not yet been compiled, unit-tested, or run against either physical printer. Settings persistence, automatic status polling, configurable endpoints, and a Windows installer remain outstanding.
