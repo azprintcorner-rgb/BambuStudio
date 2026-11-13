@@ -283,8 +283,10 @@ void TwoTreesSK1Panel::ApplyResult(std::size_t index, const std::string& operati
     }
 
     card.moonraker_connected = true;
-    if (operation_name == "Status refresh")
+    if (operation_name == "Status refresh") {
         card.klippy_ready = false;
+        card.print_state = "unknown";
+    }
     card.connection->SetLabel("Connected");
     if (operation_name == "Start print") card.print_state = "printing";
     else if (operation_name == "Pause") card.print_state = "paused";
