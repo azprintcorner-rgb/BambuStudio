@@ -244,7 +244,7 @@ void TwoTreesSK1Panel::ApplyResult(std::size_t index, const std::string& operati
 {
     auto& card = m_printers[index];
     if (!result.success) {
-        card.connection->SetLabel("Offline / error");
+        card.connection->SetLabel(operation_name == "Status refresh" ? "Offline / error" : "Command failed");
         card.details->SetLabel(wxString::FromUTF8((operation_name + ": " + result.message).c_str()));
         return;
     }
