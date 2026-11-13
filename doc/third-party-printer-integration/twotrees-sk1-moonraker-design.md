@@ -38,7 +38,7 @@ These are user-reported successful API checks, not a test performed by the build
 ## API contract
 
 - Connection: `GET /server/info`
-- Printer status: `GET /printer/objects/query?webhooks&print_stats&display_status&virtual_sdcard&toolhead&heater_bed&extruder`
+- Printer status: `GET /printer/objects/query?webhooks&print_stats&virtual_sdcard&heater_bed&extruder`
 - Upload: multipart `POST /server/files/upload`, field `file`, optional `root=gcodes`
 - Print start: `POST /printer/print/start?filename=<URL-encoded uploaded filename>`
 - Pause/resume/cancel: `POST /printer/print/pause`, `/printer/print/resume`, `/printer/print/cancel`
