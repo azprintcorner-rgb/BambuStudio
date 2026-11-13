@@ -123,9 +123,12 @@ MoonrakerHttpResult MoonrakerHttpClient::Request(const std::string& method,
         }
         if (response.result() != http::status::ok &&
             response.result() != http::status::created) {
-            result.message = result.data.is_object()
-                ? result.data.value("error", response.reason().to_string())
-                : response.reason().to_string();
+            if (result.data.is_object() && result.data.contains("error")) {
+                const auto& error = result.data["error"];
+                result.message = error.is_string() ? error.get<std::string>() : error.dump();
+            } else {
+                result.message = response.reason().to_string();
+            }
             return result;
         }
         if (result.data.is_discarded()) {
@@ -158,11 +161,12 @@ MoonrakerHttpResult MoonrakerHttpClient::GetPrinterStatus() const
 MoonrakerHttpResult MoonrakerHttpClient::UploadFile(const std::string& local_path,
                                                      const std::string& remote_root) const
 {
-    std::ifstream input(local_path, std::ios::binary);
+    const std::filesystem::path source_path = std::filesystem::u8path(local_path);
+    std::ifstream input(source_path, std::ios::binary);
     if (!input)
         return ErrorResult("Could not open the selected G-code file.");
 
-    const std::string filename = std::filesystem::path(local_path).filename().string();
+    const std::string filename = source_path.filename().u8string();
     if (filename.empty() || filename.find_first_of("\r\n\"") != std::string::npos)
         return ErrorResult("Invalid G-code filename.");
     if (remote_root != "gcodes")
