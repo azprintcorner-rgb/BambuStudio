@@ -91,11 +91,11 @@ TwoTreesSK1Panel::TwoTreesSK1Panel(wxWindow* parent)
 void TwoTreesSK1Panel::BuildCard(std::size_t index, wxSizer* parent_sizer)
 {
     auto& card = m_printers[index];
-    auto* group = new wxStaticBoxSizer(wxVERTICAL, this, wxString::FromUTF8(card.config.display_name));
+    auto* group = new wxStaticBoxSizer(wxVERTICAL, this, wxString::FromUTF8(card.config.display_name.c_str()));
     card.group_box = group->GetStaticBox();
     auto* status_row = new wxBoxSizer(wxHORIZONTAL);
     card.connection = new wxStaticText(this, wxID_ANY, "Not checked");
-    card.details = new wxStaticText(this, wxID_ANY, wxString::FromUTF8(card.config.base_url));
+    card.details = new wxStaticText(this, wxID_ANY, wxString::FromUTF8(card.config.base_url.c_str()));
     status_row->Add(card.connection, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(12));
     status_row->Add(card.details, 1, wxALIGN_CENTER_VERTICAL);
     group->Add(status_row, 0, wxEXPAND | wxALL, FromDIP(8));
@@ -131,7 +131,7 @@ void TwoTreesSK1Panel::BuildCard(std::size_t index, wxSizer* parent_sizer)
     });
     card.cancel->Bind(wxEVT_BUTTON, [this, index](wxCommandEvent&) {
         const wxString prompt = "Cancel the current print on " +
-            wxString::FromUTF8(card.config.display_name) + "?";
+            wxString::FromUTF8(card.config.display_name.c_str()) + "?";
         if (wxMessageBox(prompt, "Confirm stop", wxYES_NO | wxNO_DEFAULT | wxICON_WARNING, this) == wxYES) {
             RunOperation(index, "Stop", [](const MoonrakerHttpClient& client) { return client.CancelPrint(); });
         }
@@ -145,12 +145,12 @@ void TwoTreesSK1Panel::ConfigurePrinter(std::size_t index)
 
     auto& card = m_printers[index];
     wxTextEntryDialog name_dialog(this, "Printer display name:", "Configure TwoTrees SK1",
-                                  wxString::FromUTF8(card.config.display_name));
+                                  wxString::FromUTF8(card.config.display_name.c_str()));
     if (name_dialog.ShowModal() != wxID_OK)
         return;
 
     wxTextEntryDialog url_dialog(this, "Moonraker URL (example: http://192.168.68.54:7125):",
-                                 "Configure TwoTrees SK1", wxString::FromUTF8(card.config.base_url));
+                                 "Configure TwoTrees SK1", wxString::FromUTF8(card.config.base_url.c_str()));
     if (url_dialog.ShowModal() != wxID_OK)
         return;
 
@@ -159,15 +159,15 @@ void TwoTreesSK1Panel::ConfigurePrinter(std::size_t index)
     updated.base_url = std::string(url_dialog.GetValue().ToUTF8().data());
     std::string reason;
     if (!updated.IsValid(&reason)) {
-        wxMessageBox(wxString::FromUTF8(reason), "Invalid printer settings",
+        wxMessageBox(wxString::FromUTF8(reason.c_str()), "Invalid printer settings",
                      wxOK | wxICON_ERROR, this);
         return;
     }
 
     card.config = std::move(updated);
-    card.group_box->SetLabel(wxString::FromUTF8(card.config.display_name));
+    card.group_box->SetLabel(wxString::FromUTF8(card.config.display_name.c_str()));
     card.connection->SetLabel("Not checked");
-    card.details->SetLabel(wxString::FromUTF8(card.config.base_url));
+    card.details->SetLabel(wxString::FromUTF8(card.config.base_url.c_str()));
     card.uploaded_filename.clear();
     SavePrinterConfigs();
     RefreshPrinter(index);
@@ -232,7 +232,7 @@ void TwoTreesSK1Panel::ApplyResult(std::size_t index, const std::string& operati
     auto& card = m_printers[index];
     if (!result.success) {
         card.connection->SetLabel("Offline / error");
-        card.details->SetLabel(wxString::FromUTF8(operation_name + ": " + result.message));
+        card.details->SetLabel(wxString::FromUTF8(operation_name + ": " + result.message.c_str()));
         return;
     }
 
@@ -297,7 +297,7 @@ void TwoTreesSK1Panel::ApplyResult(std::size_t index, const std::string& operati
                result.data["result"]["klippy_state"].is_string()) {
         detail = "Klipper: " + result.data["result"]["klippy_state"].get<std::string>();
     }
-    card.details->SetLabel(wxString::FromUTF8(detail));
+    card.details->SetLabel(wxString::FromUTF8(detail.c_str()));
 }
 
 void TwoTreesSK1Panel::OnPollTimer(wxTimerEvent& event)
