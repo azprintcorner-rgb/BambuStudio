@@ -71,7 +71,7 @@ TwoTreesSK1Panel::TwoTreesSK1Panel(wxWindow* parent)
     Bind(wxEVT_TIMER, &TwoTreesSK1Panel::OnPollTimer, this);
     Bind(wxEVT_SHOW, [this](wxShowEvent& event) {
         if (event.IsShown()) {
-            m_poll_timer.Start(10000);
+            m_poll_timer.Start(2000);
             for (std::size_t i = 0; i < m_printers.size(); ++i)
                 RefreshPrinter(i);
         } else {
@@ -210,8 +210,15 @@ void TwoTreesSK1Panel::RunOperation(
 
     std::thread([weak_this, index, operation_name, config,
                  operation = std::move(operation), on_success = std::move(on_success)]() mutable {
-        MoonrakerHttpClient client(config);
-        MoonrakerHttpResult result = operation(client);
+        MoonrakerHttpResult result;
+        try {
+            MoonrakerHttpClient client(config);
+            result = operation(client);
+        } catch (const std::exception& exception) {
+            result.message = exception.what();
+        } catch (...) {
+            result.message = "Unknown error while communicating with Moonraker.";
+        }
         if (wxTheApp) {
             wxTheApp->CallAfter([weak_this, index, operation_name,
                                  result = std::move(result), on_success = std::move(on_success)]() mutable {
