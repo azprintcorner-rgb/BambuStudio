@@ -106,6 +106,10 @@ MoonrakerHttpResult MoonrakerHttpClient::Request(const std::string& method,
             request.prepare_payload();
         }
 
+        if (body.size() > 1024 * 1024)
+            stream.expires_after(std::chrono::minutes(5));
+        else
+            stream.expires_after(std::chrono::seconds(20));
         http::write(stream, request);
         beast::flat_buffer buffer;
         http::response<http::string_body> response;
