@@ -66,7 +66,7 @@ Moonraker API reference: https://moonraker.readthedocs.io/en/latest/web_api/
 
 ## Repository architecture notes
 
-The current source tree already has a DeviceWeb bridge and ViewModel registration mechanism in `src/slic3r/GUI/DeviceWeb`. The existing `DeviceManager` is Bambu-specific and uses Bambu access-code/network protocols; Moonraker devices must not be inserted into that Bambu machine model. A separate third-party ViewModel/service is the intended integration boundary. The existing DeviceWeb frontend build is driven by `src/slic3r/GUI/DeviceWeb/CMakeLists.txt`.
+The current source tree already has a DeviceWeb bridge and ViewModel registration mechanism in `src/slic3r/GUI/DeviceWeb`, but the first implementation uses a separate native wxWidgets panel and service instead. The existing `DeviceManager` is Bambu-specific and uses Bambu access-code/network protocols; Moonraker devices are not inserted into that Bambu machine model. The panel is registered as a separate MainFrame tab and owns two independent printer profiles.
 
 ## Important scope note
 
