@@ -303,6 +303,11 @@ void TwoTreesSK1Panel::ApplyResult(std::size_t index, const std::string& operati
     }
 
     std::string detail = operation_name + " successful";
+    if (result.data.is_object() && result.data.contains("printer_status_error") &&
+        result.data["printer_status_error"].is_string()) {
+        detail = "Moonraker online; printer status unavailable: " +
+                 result.data["printer_status_error"].get<std::string>();
+    }
     if (result.data.is_object() && result.data.contains("printer_status")) {
         const auto& response = result.data["printer_status"];
         if (response.contains("result") && response["result"].is_object() &&
@@ -393,8 +398,10 @@ void TwoTreesSK1Panel::RefreshPrinter(std::size_t index)
         if (!info.success)
             return info;
         auto status = client.GetPrinterStatus();
-        if (!status.success)
-            return status;
+        if (!status.success) {
+            info.data["printer_status_error"] = status.message;
+            return info;
+        }
         info.data["printer_status"] = status.data;
         return info;
     });
