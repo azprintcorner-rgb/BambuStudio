@@ -27,7 +27,14 @@ struct MoonrakerPrinterConfig
         };
 
         if (id.empty()) return fail("Printer id is required.");
-        if (display_name.empty()) return fail("Printer display name is required.");
+        if (display_name.empty() || std::all_of(display_name.begin(), display_name.end(), [](unsigned char c) {
+                return std::isspace(c) != 0;
+            }))
+            return fail("Printer display name is required.");
+        if (std::any_of(display_name.begin(), display_name.end(), [](unsigned char c) {
+                return std::iscntrl(c) != 0;
+            }))
+            return fail("Printer display name cannot contain control characters.");
         if (base_url.empty()) return fail("Moonraker base URL is required.");
 
         // Only HTTP(S) endpoints are accepted. Credentials must not be embedded
