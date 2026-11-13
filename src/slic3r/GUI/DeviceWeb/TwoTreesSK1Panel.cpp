@@ -1,11 +1,15 @@
 #include "TwoTreesSK1Panel.hpp"
 
+#include "GUI_App.hpp"
+#include "libslic3r/AppConfig.hpp"
+
 #include <wx/app.h>
 #include <wx/filedlg.h>
 #include <wx/font.h>
 #include <wx/sizer.h>
 #include <wx/statbox.h>
 #include <wx/msgdlg.h>
+#include <wx/textdlg.h>
 
 #include <filesystem>
 #include <thread>
@@ -31,7 +35,28 @@ TwoTreesSK1Panel::TwoTreesSK1Panel(wxWindow* parent)
         "Two independent printer connections. Select a printer card before uploading or controlling a print.");
     root->Add(description, 0, wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(12));
 
-    const auto defaults = MoonrakerPrinterConfig::DefaultPrinters();
+    auto defaults = MoonrakerPrinterConfig::DefaultPrinters();
+    if (wxGetApp().app_config) {
+        const std::string saved = wxGetApp().app_config->get("twotrees_sk1_printers");
+        if (!saved.empty()) {
+            const auto parsed = nlohmann::json::parse(saved, nullptr, false);
+            if (parsed.is_array()) {
+                for (const auto& item : parsed) {
+                    try {
+                        const auto config = item.get<MoonrakerPrinterConfig>();
+                        if (!config.IsValid())
+                            continue;
+                        for (auto& current : defaults) {
+                            if (current.id == config.id)
+                                current = config;
+                        }
+                    } catch (...) {
+                        // Ignore a malformed entry and keep its safe built-in default.
+                    }
+                }
+            }
+        }
+    }
     for (std::size_t i = 0; i < m_printers.size(); ++i) {
         m_printers[i].config = defaults[i];
         BuildCard(i, root);
@@ -65,6 +90,7 @@ void TwoTreesSK1Panel::BuildCard(std::size_t index, wxSizer* parent_sizer)
 {
     auto& card = m_printers[index];
     auto* group = new wxStaticBoxSizer(wxVERTICAL, this, card.config.display_name);
+    card.group_box = group->GetStaticBox();
     auto* status_row = new wxBoxSizer(wxHORIZONTAL);
     card.connection = new wxStaticText(this, wxID_ANY, "Not checked");
     card.details = new wxStaticText(this, wxID_ANY, card.config.base_url);
@@ -73,17 +99,19 @@ void TwoTreesSK1Panel::BuildCard(std::size_t index, wxSizer* parent_sizer)
     group->Add(status_row, 0, wxEXPAND | wxALL, FromDIP(8));
 
     auto* buttons = new wxBoxSizer(wxHORIZONTAL);
+    card.configure = new wxButton(this, wxID_ANY, "Configure");
     card.refresh = new wxButton(this, wxID_ANY, "Refresh");
     card.upload = new wxButton(this, wxID_ANY, "Upload G-code");
     card.start = new wxButton(this, wxID_ANY, "Start");
     card.pause = new wxButton(this, wxID_ANY, "Pause");
     card.resume = new wxButton(this, wxID_ANY, "Resume");
     card.cancel = new wxButton(this, wxID_ANY, "Stop");
-    for (auto* button : {card.refresh, card.upload, card.start, card.pause, card.resume, card.cancel})
+    for (auto* button : {card.configure, card.refresh, card.upload, card.start, card.pause, card.resume, card.cancel})
         buttons->Add(button, 0, wxRIGHT, FromDIP(6));
     group->Add(buttons, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(8));
     parent_sizer->Add(group, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(12));
 
+    card.configure->Bind(wxEVT_BUTTON, [this, index](wxCommandEvent&) { ConfigurePrinter(index); });
     card.refresh->Bind(wxEVT_BUTTON, [this, index](wxCommandEvent&) { RefreshPrinter(index); });
     card.upload->Bind(wxEVT_BUTTON, [this, index](wxCommandEvent&) { UploadGcode(index); });
     card.start->Bind(wxEVT_BUTTON, [this, index](wxCommandEvent&) { StartPrint(index); });
@@ -102,11 +130,58 @@ void TwoTreesSK1Panel::BuildCard(std::size_t index, wxSizer* parent_sizer)
     });
 }
 
+void TwoTreesSK1Panel::ConfigurePrinter(std::size_t index)
+{
+    if (index >= m_printers.size() || m_printers[index].busy)
+        return;
+
+    auto& card = m_printers[index];
+    wxTextEntryDialog name_dialog(this, "Printer display name:", "Configure TwoTrees SK1",
+                                  card.config.display_name);
+    if (name_dialog.ShowModal() != wxID_OK)
+        return;
+
+    wxTextEntryDialog url_dialog(this, "Moonraker URL (example: http://192.168.68.54:7125):",
+                                 "Configure TwoTrees SK1", card.config.base_url);
+    if (url_dialog.ShowModal() != wxID_OK)
+        return;
+
+    MoonrakerPrinterConfig updated = card.config;
+    updated.display_name = std::string(name_dialog.GetValue().ToUTF8().data());
+    updated.base_url = std::string(url_dialog.GetValue().ToUTF8().data());
+    std::string reason;
+    if (!updated.IsValid(&reason)) {
+        wxMessageBox(wxString::FromUTF8(reason), "Invalid printer settings",
+                     wxOK | wxICON_ERROR, this);
+        return;
+    }
+
+    card.config = std::move(updated);
+    card.group_box->SetLabel(card.config.display_name);
+    card.connection->SetLabel("Not checked");
+    card.details->SetLabel(card.config.base_url);
+    card.uploaded_filename.clear();
+    SavePrinterConfigs();
+    RefreshPrinter(index);
+}
+
+void TwoTreesSK1Panel::SavePrinterConfigs()
+{
+    if (!wxGetApp().app_config)
+        return;
+
+    nlohmann::json saved = nlohmann::json::array();
+    for (const auto& card : m_printers)
+        saved.push_back(card.config);
+    wxGetApp().app_config->set("twotrees_sk1_printers", saved.dump());
+    wxGetApp().app_config->save();
+}
+
 void TwoTreesSK1Panel::SetBusy(std::size_t index, bool busy)
 {
     auto& card = m_printers[index];
     card.busy = busy;
-    for (auto* button : {card.refresh, card.upload, card.start, card.pause, card.resume, card.cancel})
+    for (auto* button : {card.configure, card.refresh, card.upload, card.start, card.pause, card.resume, card.cancel})
         button->Enable(!busy);
     if (busy)
         card.connection->SetLabel("Working…");
