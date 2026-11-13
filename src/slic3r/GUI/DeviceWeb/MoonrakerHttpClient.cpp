@@ -8,6 +8,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iterator>
 #include <sstream>
 #include <utility>
@@ -50,9 +51,19 @@ bool ParseHttpEndpoint(const std::string& url, ParsedEndpoint& endpoint, std::st
     return true;
 }
 
-std::string JsonBody(const nlohmann::json& value)
+std::string UrlEncode(const std::string& value)
 {
-    return value.dump();
+    std::ostringstream encoded;
+    encoded << std::uppercase << std::hex;
+    for (unsigned char c : value) {
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~') {
+            encoded << static_cast<char>(c);
+        } else {
+            encoded << '%' << std::setw(2) << std::setfill('0') << static_cast<unsigned int>(c);
+        }
+    }
+    return encoded.str();
 }
 
 MoonrakerHttpResult ErrorResult(const std::string& message)
@@ -201,8 +212,7 @@ MoonrakerHttpResult MoonrakerHttpClient::StartPrint(const std::string& filename)
 {
     if (filename.empty() || filename.find_first_of("\r\n") != std::string::npos)
         return ErrorResult("Invalid G-code filename.");
-    return Request("POST", "/printer/print/start",
-                   JsonBody({{"filename", filename}}));
+    return Request("POST", "/printer/print/start?filename=" + UrlEncode(filename));
 }
 
 MoonrakerHttpResult MoonrakerHttpClient::PausePrint() const
