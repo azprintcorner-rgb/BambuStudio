@@ -75,6 +75,7 @@
 
 #include "DeviceCore/DevManager.h"
 #include "slic3r/GUI/DeviceWeb/DeviceWebPage.hpp"
+#include "slic3r/GUI/DeviceWeb/TwoTreesSK1Panel.hpp"
 
 #ifdef _WIN32
 #include <dbt.h>
@@ -1597,6 +1598,9 @@ void MainFrame::init_tabpanel()
         m_web_device = new DeviceWebPage(m_tabpanel);
         m_tabpanel->AddPage(m_web_device, _L("Filament Manager"), std::string("tab_filament_active"), std::string("tab_filament_active"), false);
     }
+
+    m_two_trees_sk1 = new TwoTreesSK1Panel(m_tabpanel);
+    m_tabpanel->AddPage(m_two_trees_sk1, _L("TwoTrees SK1"), std::string("tab_monitor_active"), std::string("tab_monitor_active"), false);
 
     if (m_plater) {
         // load initial config
@@ -4362,6 +4366,7 @@ static const char *perf_tab_name(size_t tab)
     case MainFrame::toDebugTool: return "Debug Tool";
     case MainFrame::tpFilamentManager: return "Filament Manager";
     case MainFrame::tpWebDevice: return "Web Device";
+    case MainFrame::tpTwoTreesSK1: return "TwoTrees SK1";
     case size_t(-1): return "last selected";
     default: return "unknown";
     }
