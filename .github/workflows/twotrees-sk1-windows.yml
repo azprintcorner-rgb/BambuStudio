@@ -1,0 +1,69 @@
+name: TwoTrees SK1 Windows x64 build
+
+on:
+  push:
+    branches:
+      - feature/twotrees-sk1-moonraker
+    paths:
+      - "src/slic3r/GUI/DeviceWeb/**"
+      - "src/slic3r/GUI/MainFrame.cpp"
+      - "src/slic3r/GUI/MainFrame.hpp"
+      - "src/slic3r/CMakeLists.txt"
+      - "build_win.bat"
+      - ".github/workflows/twotrees-sk1-windows.yml"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "src/slic3r/GUI/DeviceWeb/**"
+      - "src/slic3r/GUI/MainFrame.cpp"
+      - "src/slic3r/GUI/MainFrame.hpp"
+      - "src/slic3r/CMakeLists.txt"
+      - "build_win.bat"
+      - ".github/workflows/twotrees-sk1-windows.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-x64:
+    runs-on: windows-2022
+    timeout-minutes: 360
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Install Windows build tools
+        shell: pwsh
+        run: |
+          choco install pkgconfiglite strawberryperl --no-progress -y
+          if ($LASTEXITCODE -ne 0) { throw "Failed to install build prerequisites." }
+
+      - name: Build Bambu Studio and dependencies
+        shell: cmd
+        run: build_win.bat -a x64 -c Release -s all -r none -d "deps\build\out_deps"
+
+      - name: Verify application output
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "src\Release\bambu-studio.exe")) {
+            Get-ChildItem -Path "src\Release" -ErrorAction SilentlyContinue
+            throw "Bambu Studio executable was not produced."
+          }
+
+      - name: Package Windows x64 build
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "src\Release\*" -DestinationPath "TwoTreesSK1-BambuStudio-Windows-x64.zip" -Force
+
+      - name: Upload Windows x64 build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TwoTreesSK1-BambuStudio-Windows-x64
+          path: TwoTreesSK1-BambuStudio-Windows-x64.zip
+          if-no-files-found: error
+          retention-days: 14

@@ -304,6 +304,11 @@ list(APPEND SLIC3R_GUI_SOURCES
     GUI/DeviceWeb/DeviceWebBridge.cpp
     GUI/DeviceWeb/DeviceWebBridge.hpp
     GUI/DeviceWeb/DeviceWebModel.hpp
+    GUI/DeviceWeb/MoonrakerPrinterConfig.hpp
+    GUI/DeviceWeb/MoonrakerHttpClient.hpp
+    GUI/DeviceWeb/MoonrakerHttpClient.cpp
+    GUI/DeviceWeb/TwoTreesSK1Panel.hpp
+    GUI/DeviceWeb/TwoTreesSK1Panel.cpp
     GUI/DeviceWeb/IViewModel.hpp
     GUI/DeviceWeb/DeviceWebManager.cpp
     GUI/DeviceWeb/DeviceWebManager.hpp

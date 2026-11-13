@@ -1,0 +1,461 @@
+#include "TwoTreesSK1Panel.hpp"
+
+#include "slic3r/GUI/GUI_App.hpp"
+#include "libslic3r/AppConfig.hpp"
+
+#include <wx/app.h>
+#include <wx/filedlg.h>
+#include <wx/font.h>
+#include <wx/sizer.h>
+#include <wx/statbox.h>
+#include <wx/msgdlg.h>
+#include <wx/textdlg.h>
+
+#include <exception>
+#include <filesystem>
+#include <iomanip>
+#include <sstream>
+#include <thread>
+#include <utility>
+
+namespace Slic3r { namespace GUI {
+
+TwoTreesSK1Panel::TwoTreesSK1Panel(wxWindow* parent)
+    : wxPanel(parent, wxID_ANY)
+    , m_poll_timer(this)
+{
+    SetBackgroundColour(*wxWHITE);
+    auto* root = new wxBoxSizer(wxVERTICAL);
+
+    auto* heading = new wxStaticText(this, wxID_ANY, "TwoTrees SK1 — Moonraker");
+    wxFont heading_font = heading->GetFont();
+    heading_font.SetPointSize(heading_font.GetPointSize() + 3);
+    heading_font.SetWeight(wxFONTWEIGHT_BOLD);
+    heading->SetFont(heading_font);
+    root->Add(heading, 0, wxALL, FromDIP(12));
+
+    auto* description = new wxStaticText(this, wxID_ANY,
+        "Two independent printer connections. Select a printer card before uploading or controlling a print.");
+    root->Add(description, 0, wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(12));
+
+    auto defaults = MoonrakerPrinterConfig::DefaultPrinters();
+    if (wxGetApp().app_config) {
+        const std::string saved = wxGetApp().app_config->get("twotrees_sk1_printers");
+        if (!saved.empty()) {
+            const auto parsed = nlohmann::json::parse(saved, nullptr, false);
+            if (parsed.is_array()) {
+                for (const auto& item : parsed) {
+                    try {
+                        const auto config = item.get<MoonrakerPrinterConfig>();
+                        if (!config.IsValid())
+                            continue;
+                        for (auto& current : defaults) {
+                            if (current.id == config.id)
+                                current = config;
+                        }
+                    } catch (...) {
+                        // Ignore a malformed entry and keep its safe built-in default.
+                    }
+                }
+            }
+        }
+    }
+    for (std::size_t i = 0; i < m_printers.size(); ++i) {
+        m_printers[i].config = defaults[i];
+        BuildCard(i, root);
+    }
+
+    root->AddStretchSpacer(1);
+    SetSizer(root);
+    Layout();
+
+    Bind(wxEVT_TIMER, &TwoTreesSK1Panel::OnPollTimer, this);
+    Bind(wxEVT_SHOW, [this](wxShowEvent& event) {
+        if (event.IsShown()) {
+            m_poll_timer.Start(2000);
+            for (std::size_t i = 0; i < m_printers.size(); ++i)
+                RefreshPrinter(i);
+        } else {
+            m_poll_timer.Stop();
+        }
+        event.Skip();
+    });
+
+    // Safe startup check: only reads Moonraker status; it never starts a print.
+    if (IsShownOnScreen()) {
+        m_poll_timer.Start(2000);
+        for (std::size_t i = 0; i < m_printers.size(); ++i)
+            RefreshPrinter(i);
+    }
+}
+
+void TwoTreesSK1Panel::BuildCard(std::size_t index, wxSizer* parent_sizer)
+{
+    auto& card = m_printers[index];
+    auto* group = new wxStaticBoxSizer(wxVERTICAL, this, wxString::FromUTF8(card.config.display_name.c_str()));
+    card.group_box = group->GetStaticBox();
+    auto* status_row = new wxBoxSizer(wxHORIZONTAL);
+    card.connection = new wxStaticText(this, wxID_ANY, "Not checked");
+    card.details = new wxStaticText(this, wxID_ANY, wxString::FromUTF8(card.config.base_url.c_str()));
+    status_row->Add(card.connection, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(12));
+    status_row->Add(card.details, 1, wxALIGN_CENTER_VERTICAL);
+    group->Add(status_row, 0, wxEXPAND | wxALL, FromDIP(8));
+
+    auto* buttons = new wxBoxSizer(wxVERTICAL);
+    auto* primary_buttons = new wxBoxSizer(wxHORIZONTAL);
+    auto* print_buttons = new wxBoxSizer(wxHORIZONTAL);
+    card.configure = new wxButton(this, wxID_ANY, "Configure");
+    card.refresh = new wxButton(this, wxID_ANY, "Refresh");
+    card.upload = new wxButton(this, wxID_ANY, "Upload G-code");
+    card.start = new wxButton(this, wxID_ANY, "Start");
+    card.pause = new wxButton(this, wxID_ANY, "Pause");
+    card.resume = new wxButton(this, wxID_ANY, "Resume");
+    card.cancel = new wxButton(this, wxID_ANY, "Stop");
+    for (auto* button : {card.configure, card.refresh, card.upload, card.start})
+        primary_buttons->Add(button, 0, wxRIGHT, FromDIP(6));
+    for (auto* button : {card.pause, card.resume, card.cancel})
+        print_buttons->Add(button, 0, wxRIGHT, FromDIP(6));
+    buttons->Add(primary_buttons, 0, wxBOTTOM, FromDIP(6));
+    buttons->Add(print_buttons, 0);
+    group->Add(buttons, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(8));
+    parent_sizer->Add(group, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(12));
+
+    card.configure->Bind(wxEVT_BUTTON, [this, index](wxCommandEvent&) { ConfigurePrinter(index); });
+    card.refresh->Bind(wxEVT_BUTTON, [this, index](wxCommandEvent&) { RefreshPrinter(index); });
+    card.upload->Bind(wxEVT_BUTTON, [this, index](wxCommandEvent&) { UploadGcode(index); });
+    card.start->Bind(wxEVT_BUTTON, [this, index](wxCommandEvent&) { StartPrint(index); });
+    card.pause->Bind(wxEVT_BUTTON, [this, index](wxCommandEvent&) {
+        RunOperation(index, "Pause", [](const MoonrakerHttpClient& client) { return client.PausePrint(); });
+    });
+    card.resume->Bind(wxEVT_BUTTON, [this, index](wxCommandEvent&) {
+        RunOperation(index, "Resume", [](const MoonrakerHttpClient& client) { return client.ResumePrint(); });
+    });
+    card.cancel->Bind(wxEVT_BUTTON, [this, index](wxCommandEvent&) {
+        const wxString prompt = "Cancel the current print on " +
+            wxString::FromUTF8(card.config.display_name.c_str()) + "?";
+        if (wxMessageBox(prompt, "Confirm stop", wxYES_NO | wxNO_DEFAULT | wxICON_WARNING, this) == wxYES) {
+            RunOperation(index, "Stop", [](const MoonrakerHttpClient& client) { return client.CancelPrint(); });
+        }
+    });
+    UpdateControls(index);
+}
+
+void TwoTreesSK1Panel::ConfigurePrinter(std::size_t index)
+{
+    if (index >= m_printers.size() || m_printers[index].busy)
+        return;
+
+    auto& card = m_printers[index];
+    wxTextEntryDialog name_dialog(this, "Printer display name:", "Configure TwoTrees SK1",
+                                  wxString::FromUTF8(card.config.display_name.c_str()));
+    if (name_dialog.ShowModal() != wxID_OK)
+        return;
+
+    wxTextEntryDialog url_dialog(this, "Moonraker URL (example: http://192.168.68.54:7125):",
+                                 "Configure TwoTrees SK1", wxString::FromUTF8(card.config.base_url.c_str()));
+    if (url_dialog.ShowModal() != wxID_OK)
+        return;
+
+    MoonrakerPrinterConfig updated = card.config;
+    updated.display_name = std::string(name_dialog.GetValue().ToUTF8().data());
+    updated.base_url = std::string(url_dialog.GetValue().ToUTF8().data());
+    std::string reason;
+    if (!updated.IsValid(&reason)) {
+        wxMessageBox(wxString::FromUTF8(reason.c_str()), "Invalid printer settings",
+                     wxOK | wxICON_ERROR, this);
+        return;
+    }
+    for (std::size_t other = 0; other < m_printers.size(); ++other) {
+        if (other != index && m_printers[other].config.base_url == updated.base_url) {
+            wxMessageBox("Each TwoTrees SK1 profile must point to a different Moonraker URL.",
+                         "Duplicate printer address", wxOK | wxICON_ERROR, this);
+            return;
+        }
+    }
+
+    card.config = std::move(updated);
+    card.group_box->SetLabel(wxString::FromUTF8(card.config.display_name.c_str()));
+    card.connection->SetLabel("Not checked");
+    card.details->SetLabel(wxString::FromUTF8(card.config.base_url.c_str()));
+    card.uploaded_filename.clear();
+    card.moonraker_connected = false;
+    card.klippy_ready = false;
+    card.print_state.clear();
+    UpdateControls(index);
+    SavePrinterConfigs();
+    RefreshPrinter(index);
+}
+
+void TwoTreesSK1Panel::SavePrinterConfigs()
+{
+    if (!wxGetApp().app_config)
+        return;
+
+    nlohmann::json saved = nlohmann::json::array();
+    for (const auto& card : m_printers)
+        saved.push_back(card.config);
+    try {
+        wxGetApp().app_config->set("twotrees_sk1_printers", saved.dump());
+        wxGetApp().app_config->save();
+    } catch (const std::exception& exception) {
+        wxMessageBox(wxString::FromUTF8(exception.what()), "Could not save printer settings",
+                     wxOK | wxICON_WARNING, this);
+    }
+}
+
+void TwoTreesSK1Panel::SetBusy(std::size_t index, bool busy)
+{
+    auto& card = m_printers[index];
+    card.busy = busy;
+    if (busy) {
+        for (auto* button : {card.configure, card.refresh, card.upload, card.start, card.pause, card.resume, card.cancel})
+            button->Enable(false);
+        card.connection->SetLabel("Working…");
+    } else {
+        UpdateControls(index);
+    }
+}
+
+void TwoTreesSK1Panel::UpdateControls(std::size_t index)
+{
+    auto& card = m_printers[index];
+    const bool active_print = card.print_state == "printing" || card.print_state == "paused" ||
+                              card.print_state == "starting" || card.print_state == "pausing" ||
+                              card.print_state == "resuming" || card.print_state == "cancelling";
+    card.configure->Enable(!card.busy && !active_print);
+    card.refresh->Enable(!card.busy);
+
+    const bool idle = card.print_state.empty() || card.print_state == "standby" ||
+                      card.print_state == "complete" || card.print_state == "cancelled" ||
+                      card.print_state == "error";
+    const bool ready = card.moonraker_connected && card.klippy_ready && !card.busy;
+    card.upload->Enable(ready && idle);
+    card.start->Enable(ready && idle && !card.uploaded_filename.empty());
+    card.pause->Enable(ready && card.print_state == "printing");
+    card.resume->Enable(ready && card.print_state == "paused");
+    card.cancel->Enable(ready && (card.print_state == "printing" || card.print_state == "paused"));
+}
+
+void TwoTreesSK1Panel::RunOperation(
+    std::size_t index,
+    const std::string& operation_name,
+    std::function<MoonrakerHttpResult(const MoonrakerHttpClient&)> operation,
+    std::function<void(const MoonrakerHttpResult&)> on_success)
+{
+    if (index >= m_printers.size() || m_printers[index].busy)
+        return;
+
+    SetBusy(index, true);
+    const auto config = m_printers[index].config;
+    wxWeakRef<TwoTreesSK1Panel> weak_this(this);
+
+    std::thread([weak_this, index, operation_name, config,
+                 operation = std::move(operation), on_success = std::move(on_success)]() mutable {
+        MoonrakerHttpResult result;
+        try {
+            MoonrakerHttpClient client(config);
+            result = operation(client);
+        } catch (const std::exception& exception) {
+            result.message = exception.what();
+        } catch (...) {
+            result.message = "Unknown error while communicating with Moonraker.";
+        }
+        if (wxTheApp) {
+            wxTheApp->CallAfter([weak_this, index, operation_name,
+                                 result = std::move(result), on_success = std::move(on_success)]() mutable {
+                if (!weak_this)
+                    return;
+                weak_this->SetBusy(index, false);
+                weak_this->ApplyResult(index, operation_name, result);
+                if (result.success && on_success)
+                    on_success(result);
+            });
+        }
+    }).detach();
+}
+
+void TwoTreesSK1Panel::ApplyResult(std::size_t index, const std::string& operation_name,
+                                   const MoonrakerHttpResult& result)
+{
+    auto& card = m_printers[index];
+    if (!result.success) {
+        if (operation_name == "Status refresh") {
+            card.moonraker_connected = false;
+            card.klippy_ready = false;
+            card.print_state.clear();
+            card.connection->SetLabel("Offline / error");
+        } else {
+            card.connection->SetLabel("Command failed");
+        }
+        card.details->SetLabel(wxString::FromUTF8((operation_name + ": " + result.message).c_str()));
+        UpdateControls(index);
+        return;
+    }
+
+    card.moonraker_connected = true;
+    if (operation_name == "Status refresh") {
+        card.klippy_ready = false;
+        card.print_state = "unknown";
+    }
+    card.connection->SetLabel("Connected");
+    if (operation_name == "Start print") card.print_state = "starting";
+    else if (operation_name == "Pause") card.print_state = "pausing";
+    else if (operation_name == "Resume") card.print_state = "resuming";
+    else if (operation_name == "Stop") card.print_state = "cancelling";
+
+    if (result.data.is_object() && result.data.contains("result") &&
+        result.data["result"].is_object() && result.data["result"].contains("klippy_state") &&
+        result.data["result"]["klippy_state"].is_string()) {
+        card.klippy_ready = result.data["result"]["klippy_state"].get<std::string>() == "ready";
+    }
+
+    std::string detail = operation_name + " successful";
+    if (result.data.is_object() && result.data.contains("printer_status_error") &&
+        result.data["printer_status_error"].is_string()) {
+        detail = "Moonraker online; printer status unavailable: " +
+                 result.data["printer_status_error"].get<std::string>();
+    }
+    if (result.data.is_object() && result.data.contains("printer_status")) {
+        const auto& response = result.data["printer_status"];
+        if (response.contains("result") && response["result"].is_object() &&
+            response["result"].contains("status") && response["result"]["status"].is_object()) {
+            const auto& status = response["result"]["status"];
+            std::ostringstream summary;
+            bool has_detail = false;
+
+            if (status.contains("webhooks") && status["webhooks"].is_object() &&
+                status["webhooks"].contains("state") && status["webhooks"]["state"].is_string()) {
+                const std::string klipper_state = status["webhooks"]["state"].get<std::string>();
+                card.klippy_ready = klipper_state == "ready";
+                if (klipper_state != "ready") {
+                    summary << "Klipper: " << klipper_state;
+                    if (status["webhooks"].contains("message") && status["webhooks"]["message"].is_string())
+                        summary << " — " << status["webhooks"]["message"].get<std::string>();
+                    has_detail = true;
+                }
+            }
+
+            if (status.contains("print_stats") && status["print_stats"].is_object()) {
+                const auto& print_stats = status["print_stats"];
+                if (print_stats.contains("state") && print_stats["state"].is_string()) {
+                    card.print_state = print_stats["state"].get<std::string>();
+                    summary << (has_detail ? " | " : "") << "State: " << card.print_state;
+                    has_detail = true;
+                }
+                if (print_stats.contains("filename") && print_stats["filename"].is_string() &&
+                    !print_stats["filename"].get<std::string>().empty()) {
+                    summary << (has_detail ? " | " : "") << print_stats["filename"].get<std::string>();
+                    has_detail = true;
+                }
+            }
+
+            double progress = -1.0;
+            if (status.contains("display_status") && status["display_status"].is_object() &&
+                status["display_status"].contains("progress") &&
+                status["display_status"]["progress"].is_number()) {
+                progress = status["display_status"]["progress"].get<double>();
+            } else if (status.contains("virtual_sdcard") && status["virtual_sdcard"].is_object() &&
+                       status["virtual_sdcard"].contains("progress") &&
+                       status["virtual_sdcard"]["progress"].is_number()) {
+                progress = status["virtual_sdcard"]["progress"].get<double>();
+            }
+            if (progress >= 0.0) {
+                summary << (has_detail ? " | " : "") << std::fixed << std::setprecision(1)
+                        << (progress * 100.0) << "%";
+                has_detail = true;
+            }
+
+            const auto append_temperature = [&summary, &status, &has_detail](
+                const char* object_name, const char* label) {
+                const auto it = status.find(object_name);
+                if (it == status.end() || !it->is_object() ||
+                    !it->contains("temperature") || !(*it)["temperature"].is_number())
+                    return;
+                summary << (has_detail ? " | " : "") << label << ": "
+                        << std::fixed << std::setprecision(0)
+                        << (*it)["temperature"].get<double>() << " C";
+                has_detail = true;
+            };
+            append_temperature("extruder", "Nozzle");
+            append_temperature("heater_bed", "Bed");
+            if (has_detail)
+                detail = summary.str();
+        }
+    } else if (result.data.is_object() && result.data.contains("result") &&
+               result.data["result"].is_object() &&
+               result.data["result"].contains("klippy_state") &&
+               result.data["result"]["klippy_state"].is_string()) {
+        detail = "Klipper: " + result.data["result"]["klippy_state"].get<std::string>();
+    }
+    card.details->SetLabel(wxString::FromUTF8(detail.c_str()));
+    UpdateControls(index);
+}
+
+void TwoTreesSK1Panel::OnPollTimer(wxTimerEvent& event)
+{
+    (void) event;
+    for (std::size_t i = 0; i < m_printers.size(); ++i)
+        RefreshPrinter(i);
+}
+
+void TwoTreesSK1Panel::RefreshPrinter(std::size_t index)
+{
+    RunOperation(index, "Status refresh", [](const MoonrakerHttpClient& client) {
+        auto info = client.GetServerInfo();
+        if (!info.success)
+            return info;
+        auto status = client.GetPrinterStatus();
+        if (!status.success) {
+            info.data["printer_status_error"] = status.message;
+            return info;
+        }
+        info.data["printer_status"] = status.data;
+        return info;
+    });
+}
+
+void TwoTreesSK1Panel::UploadGcode(std::size_t index)
+{
+    if (index >= m_printers.size() || m_printers[index].busy ||
+        !m_printers[index].moonraker_connected || !m_printers[index].klippy_ready)
+        return;
+
+    wxFileDialog dialog(this, "Select G-code file", wxEmptyString, wxEmptyString,
+                        "G-code files (*.gcode;*.gco;*.g)|*.gcode;*.gco;*.g|All files (*.*)|*.*",
+                        wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+    if (dialog.ShowModal() != wxID_OK)
+        return;
+
+    const wxString confirm = "Upload this G-code to " +
+        wxString::FromUTF8(m_printers[index].config.display_name.c_str()) +
+        "? Make sure it was sliced for this TwoTrees SK1 profile.";
+    if (wxMessageBox(confirm, "Confirm G-code target", wxYES_NO | wxNO_DEFAULT | wxICON_WARNING, this) != wxYES)
+        return;
+
+    const std::string path = std::string(dialog.GetPath().ToUTF8().data());
+    const std::string filename = std::filesystem::u8path(path).filename().u8string();
+    RunOperation(index, "Upload", [path](const MoonrakerHttpClient& client) {
+        return client.UploadFile(path);
+    }, [this, index, filename](const MoonrakerHttpResult&) {
+        m_printers[index].uploaded_filename = filename;
+        m_printers[index].details->SetLabel(wxString::FromUTF8(("Uploaded: " + filename).c_str()));
+        UpdateControls(index);
+    });
+}
+
+void TwoTreesSK1Panel::StartPrint(std::size_t index)
+{
+    if (index >= m_printers.size() || !m_printers[index].klippy_ready ||
+        !m_printers[index].moonraker_connected)
+        return;
+    const std::string filename = m_printers[index].uploaded_filename;
+    if (filename.empty()) {
+        m_printers[index].details->SetLabel("Upload a G-code file before starting a print.");
+        return;
+    }
+    RunOperation(index, "Start print", [filename](const MoonrakerHttpClient& client) {
+        return client.StartPrint(filename);
+    });
+}
+
+}} // namespace Slic3r::GUI
