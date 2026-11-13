@@ -19,7 +19,7 @@ namespace {
 struct ParsedEndpoint
 {
     std::string host;
-    std::string port{"80"};
+    std::string port{"7125"};
 };
 
 bool ParseHttpEndpoint(const std::string& url, ParsedEndpoint& endpoint, std::string& error)
@@ -97,7 +97,7 @@ MoonrakerHttpResult MoonrakerHttpClient::Request(const std::string& method,
 
         http::request<http::string_body> request{
             method == "POST" ? http::verb::post : http::verb::get, target, 11};
-        request.set(http::field::host, endpoint.host);
+        request.set(http::field::host, endpoint.host + (endpoint.port == "80" ? "" : ":" + endpoint.port));
         request.set(http::field::user_agent, "BambuStudio-TwoTreesSK1/1.0");
         request.set(http::field::connection, "close");
         if (!body.empty()) {
