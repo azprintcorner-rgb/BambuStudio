@@ -163,7 +163,7 @@ MoonrakerHttpResult MoonrakerHttpClient::GetServerInfo() const
 MoonrakerHttpResult MoonrakerHttpClient::GetPrinterStatus() const
 {
     return Request("GET",
-        "/printer/objects/query?print_stats&display_status&toolhead&heater_bed&extruder");
+        "/printer/objects/query?webhooks&print_stats&display_status&virtual_sdcard&toolhead&heater_bed&extruder");
 }
 
 MoonrakerHttpResult MoonrakerHttpClient::UploadFile(const std::string& local_path,
