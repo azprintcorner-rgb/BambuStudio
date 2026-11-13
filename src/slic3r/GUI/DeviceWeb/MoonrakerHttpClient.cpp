@@ -145,7 +145,10 @@ MoonrakerHttpResult MoonrakerHttpClient::Request(const std::string& method,
             response.result() != http::status::created) {
             if (result.data.is_object() && result.data.contains("error")) {
                 const auto& error = result.data["error"];
-                result.message = error.is_string() ? error.get<std::string>() : error.dump();
+                if (error.is_object() && error.contains("message") && error["message"].is_string())
+                    result.message = error["message"].get<std::string>();
+                else
+                    result.message = error.is_string() ? error.get<std::string>() : error.dump();
             } else {
                 const auto reason = response.reason();
                 result.message.assign(reason.data(), reason.size());
@@ -157,8 +160,11 @@ MoonrakerHttpResult MoonrakerHttpClient::Request(const std::string& method,
             return result;
         }
         if (result.data.is_object() && result.data.contains("error")) {
-            result.message = result.data["error"].is_string()
-                ? result.data["error"].get<std::string>() : result.data["error"].dump();
+            const auto& error = result.data["error"];
+            if (error.is_object() && error.contains("message") && error["message"].is_string())
+                result.message = error["message"].get<std::string>();
+            else
+                result.message = error.is_string() ? error.get<std::string>() : error.dump();
             return result;
         }
         result.success = true;
