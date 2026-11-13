@@ -232,7 +232,7 @@ void TwoTreesSK1Panel::ApplyResult(std::size_t index, const std::string& operati
     auto& card = m_printers[index];
     if (!result.success) {
         card.connection->SetLabel("Offline / error");
-        card.details->SetLabel(wxString::FromUTF8(operation_name + ": " + result.message.c_str()));
+        card.details->SetLabel(wxString::FromUTF8((operation_name + ": " + result.message).c_str()));
         return;
     }
 
@@ -338,7 +338,7 @@ void TwoTreesSK1Panel::UploadGcode(std::size_t index)
         return client.UploadFile(path);
     }, [this, index, filename](const MoonrakerHttpResult&) {
         m_printers[index].uploaded_filename = filename;
-        m_printers[index].details->SetLabel("Uploaded: " + filename);
+        m_printers[index].details->SetLabel(wxString::FromUTF8(("Uploaded: " + filename).c_str()));
     });
 }
 
