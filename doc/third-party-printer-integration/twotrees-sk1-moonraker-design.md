@@ -75,8 +75,8 @@ This document records the confirmed target setup and integration design. It is n
 
 ## Implementation progress (2026-11-13)
 
-- Added `MoonrakerPrinterConfig` with two default TwoTrees SK1 profiles and validation.
+- Added `MoonrakerPrinterConfig` with two default TwoTrees SK1 profiles, host/port validation, JSON serialization and persistent settings in the application config. Each card can independently edit its display name and Moonraker URL.
 - Added a reusable synchronous Boost.Beast HTTP client for server info, printer status, G-code upload, print start, pause, resume and cancel. Callers must execute it off the GUI thread. Current transport supports plain HTTP only on Moonraker default port 7125 (or an explicit custom port); HTTPS is rejected explicitly.
-- Added a native "TwoTrees SK1" tab with two independent printer cards, startup status checks, 10-second status polling while the tab is visible, manual refresh, G-code upload and explicit print controls. Upload does not start a print; Stop asks for confirmation.
+- Added a native "TwoTrees SK1" tab with two independent printer cards, startup status checks, 2-second status polling while the tab is visible, manual refresh, per-printer configuration, G-code upload, print state/progress/temperature display and explicit print controls. Upload does not start a print; Stop asks for confirmation.
 - Registered the new sources in the DeviceWeb CMake source list and added the tab to MainFrame.
-- The native source has not yet been compiled, unit-tested, or run against either physical printer. Settings persistence, configurable endpoints, native compilation, runtime verification against both printers, and a Windows installer remain outstanding.
+- The native source has not yet been compiled, unit-tested, or run against either physical printer. Native compilation, runtime verification against both printers, and a Windows installer remain outstanding.
