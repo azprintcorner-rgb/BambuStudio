@@ -5,6 +5,8 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 
+#include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -186,8 +188,16 @@ MoonrakerHttpResult MoonrakerHttpClient::UploadFile(const std::string& local_pat
         return ErrorResult("Could not open the selected G-code file.");
 
     const std::string filename = source_path.filename().u8string();
-    if (filename.empty() || filename.find_first_of("\r\n\"") != std::string::npos)
+    if (filename.empty() || filename.find_first_of("\r\n\";\\") != std::string::npos)
         return ErrorResult("Invalid G-code filename.");
+    std::string extension = source_path.extension().u8string();
+    std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    if (extension != ".gcode" && extension != ".gco" && extension != ".g")
+        return ErrorResult("Select a .gcode, .gco or .g file.");
+    if (input.peek() == std::ifstream::traits_type::eof())
+        return ErrorResult("The selected G-code file is empty.");
     if (remote_root != "gcodes")
         return ErrorResult("Only the Moonraker gcodes root is supported.");
 
