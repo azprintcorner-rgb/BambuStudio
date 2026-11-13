@@ -12,8 +12,8 @@ The user has two physically separate TwoTrees SK1 printers on the same LAN. They
 
 | Display name | Base URL | Device identity |
 |---|---|---|
-| TwoTrees SK1 (1) | http://192.168.68.54 | Separate Moonraker instance |
-| TwoTrees SK1 (2) | http://192.168.68.53 | Separate Moonraker instance |
+| TwoTrees SK1 (1) | http://192.168.68.54:7125 | Separate Moonraker instance |
+| TwoTrees SK1 (2) | http://192.168.68.53:7125 | Separate Moonraker instance |
 
 Both devices have been checked by the user through `GET /server/info`. The returned response from each reported:
 - `klippy_connected: true`
@@ -76,7 +76,7 @@ This document records the confirmed target setup and integration design. It is n
 ## Implementation progress (2026-11-13)
 
 - Added `MoonrakerPrinterConfig` with two default TwoTrees SK1 profiles and validation.
-- Added a reusable synchronous Boost.Beast HTTP client for server info, printer status, G-code upload, print start, pause, resume and cancel. Callers must execute it off the GUI thread. Current transport supports plain HTTP only; HTTPS is rejected explicitly.
+- Added a reusable synchronous Boost.Beast HTTP client for server info, printer status, G-code upload, print start, pause, resume and cancel. Callers must execute it off the GUI thread. Current transport supports plain HTTP only on Moonraker default port 7125 (or an explicit custom port); HTTPS is rejected explicitly.
 - Added a native "TwoTrees SK1" tab with two independent printer cards, startup status checks, 10-second status polling while the tab is visible, manual refresh, G-code upload and explicit print controls. Upload does not start a print; Stop asks for confirmation.
 - Registered the new sources in the DeviceWeb CMake source list and added the tab to MainFrame.
 - The native source has not yet been compiled, unit-tested, or run against either physical printer. Settings persistence, automatic status polling, configurable endpoints, and a Windows installer remain outstanding.
