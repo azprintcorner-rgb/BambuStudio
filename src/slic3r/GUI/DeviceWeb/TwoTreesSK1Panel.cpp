@@ -137,6 +137,7 @@ void TwoTreesSK1Panel::BuildCard(std::size_t index, wxSizer* parent_sizer)
             RunOperation(index, "Stop", [](const MoonrakerHttpClient& client) { return client.CancelPrint(); });
         }
     });
+    UpdateControls(index);
 }
 
 void TwoTreesSK1Panel::ConfigurePrinter(std::size_t index)
@@ -170,6 +171,10 @@ void TwoTreesSK1Panel::ConfigurePrinter(std::size_t index)
     card.connection->SetLabel("Not checked");
     card.details->SetLabel(wxString::FromUTF8(card.config.base_url.c_str()));
     card.uploaded_filename.clear();
+    card.moonraker_connected = false;
+    card.klippy_ready = false;
+    card.print_state.clear();
+    UpdateControls(index);
     SavePrinterConfigs();
     RefreshPrinter(index);
 }
@@ -195,10 +200,30 @@ void TwoTreesSK1Panel::SetBusy(std::size_t index, bool busy)
 {
     auto& card = m_printers[index];
     card.busy = busy;
-    for (auto* button : {card.configure, card.refresh, card.upload, card.start, card.pause, card.resume, card.cancel})
-        button->Enable(!busy);
-    if (busy)
+    if (busy) {
+        for (auto* button : {card.configure, card.refresh, card.upload, card.start, card.pause, card.resume, card.cancel})
+            button->Enable(false);
         card.connection->SetLabel("Working…");
+    } else {
+        UpdateControls(index);
+    }
+}
+
+void TwoTreesSK1Panel::UpdateControls(std::size_t index)
+{
+    auto& card = m_printers[index];
+    card.configure->Enable(!card.busy);
+    card.refresh->Enable(!card.busy);
+
+    const bool idle = card.print_state.empty() || card.print_state == "standby" ||
+                      card.print_state == "complete" || card.print_state == "cancelled" ||
+                      card.print_state == "error";
+    const bool ready = card.moonraker_connected && card.klippy_ready && !card.busy;
+    card.upload->Enable(ready && idle);
+    card.start->Enable(ready && idle && !card.uploaded_filename.empty());
+    card.pause->Enable(ready && card.print_state == "printing");
+    card.resume->Enable(ready && card.print_state == "paused");
+    card.cancel->Enable(ready && (card.print_state == "printing" || card.print_state == "paused"));
 }
 
 void TwoTreesSK1Panel::RunOperation(
@@ -244,12 +269,33 @@ void TwoTreesSK1Panel::ApplyResult(std::size_t index, const std::string& operati
 {
     auto& card = m_printers[index];
     if (!result.success) {
-        card.connection->SetLabel(operation_name == "Status refresh" ? "Offline / error" : "Command failed");
+        if (operation_name == "Status refresh") {
+            card.moonraker_connected = false;
+            card.klippy_ready = false;
+            card.print_state.clear();
+            card.connection->SetLabel("Offline / error");
+        } else {
+            card.connection->SetLabel("Command failed");
+        }
         card.details->SetLabel(wxString::FromUTF8((operation_name + ": " + result.message).c_str()));
+        UpdateControls(index);
         return;
     }
 
+    card.moonraker_connected = true;
+    card.klippy_ready = false;
     card.connection->SetLabel("Connected");
+    if (operation_name == "Start print") card.print_state = "printing";
+    else if (operation_name == "Pause") card.print_state = "paused";
+    else if (operation_name == "Resume") card.print_state = "printing";
+    else if (operation_name == "Stop") card.print_state = "cancelled";
+
+    if (result.data.is_object() && result.data.contains("result") &&
+        result.data["result"].is_object() && result.data["result"].contains("klippy_state") &&
+        result.data["result"]["klippy_state"].is_string()) {
+        card.klippy_ready = result.data["result"]["klippy_state"].get<std::string>() == "ready";
+    }
+
     std::string detail = operation_name + " successful";
     if (result.data.is_object() && result.data.contains("printer_status")) {
         const auto& response = result.data["printer_status"];
@@ -262,6 +308,7 @@ void TwoTreesSK1Panel::ApplyResult(std::size_t index, const std::string& operati
             if (status.contains("webhooks") && status["webhooks"].is_object() &&
                 status["webhooks"].contains("state") && status["webhooks"]["state"].is_string()) {
                 const std::string klipper_state = status["webhooks"]["state"].get<std::string>();
+                card.klippy_ready = klipper_state == "ready";
                 if (klipper_state != "ready") {
                     summary << "Klipper: " << klipper_state;
                     if (status["webhooks"].contains("message") && status["webhooks"]["message"].is_string())
@@ -273,7 +320,8 @@ void TwoTreesSK1Panel::ApplyResult(std::size_t index, const std::string& operati
             if (status.contains("print_stats") && status["print_stats"].is_object()) {
                 const auto& print_stats = status["print_stats"];
                 if (print_stats.contains("state") && print_stats["state"].is_string()) {
-                    summary << "State: " << print_stats["state"].get<std::string>();
+                    card.print_state = print_stats["state"].get<std::string>();
+                    summary << "State: " << card.print_state;
                     has_detail = true;
                 }
                 if (print_stats.contains("filename") && print_stats["filename"].is_string() &&
@@ -322,6 +370,7 @@ void TwoTreesSK1Panel::ApplyResult(std::size_t index, const std::string& operati
         detail = "Klipper: " + result.data["result"]["klippy_state"].get<std::string>();
     }
     card.details->SetLabel(wxString::FromUTF8(detail.c_str()));
+    UpdateControls(index);
 }
 
 void TwoTreesSK1Panel::OnPollTimer(wxTimerEvent& event)
@@ -347,7 +396,8 @@ void TwoTreesSK1Panel::RefreshPrinter(std::size_t index)
 
 void TwoTreesSK1Panel::UploadGcode(std::size_t index)
 {
-    if (m_printers[index].busy)
+    if (index >= m_printers.size() || m_printers[index].busy ||
+        !m_printers[index].moonraker_connected || !m_printers[index].klippy_ready)
         return;
 
     wxFileDialog dialog(this, "Select G-code file", wxEmptyString, wxEmptyString,
@@ -363,11 +413,15 @@ void TwoTreesSK1Panel::UploadGcode(std::size_t index)
     }, [this, index, filename](const MoonrakerHttpResult&) {
         m_printers[index].uploaded_filename = filename;
         m_printers[index].details->SetLabel(wxString::FromUTF8(("Uploaded: " + filename).c_str()));
+        UpdateControls(index);
     });
 }
 
 void TwoTreesSK1Panel::StartPrint(std::size_t index)
 {
+    if (index >= m_printers.size() || !m_printers[index].klippy_ready ||
+        !m_printers[index].moonraker_connected)
+        return;
     const std::string filename = m_printers[index].uploaded_filename;
     if (filename.empty()) {
         m_printers[index].details->SetLabel("Upload a G-code file before starting a print.");
