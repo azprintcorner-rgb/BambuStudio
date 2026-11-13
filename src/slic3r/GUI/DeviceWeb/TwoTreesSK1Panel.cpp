@@ -410,6 +410,12 @@ void TwoTreesSK1Panel::UploadGcode(std::size_t index)
     if (dialog.ShowModal() != wxID_OK)
         return;
 
+    const wxString confirm = "Upload this G-code to " +
+        wxString::FromUTF8(m_printers[index].config.display_name.c_str()) +
+        "? Make sure it was sliced for this TwoTrees SK1 profile.";
+    if (wxMessageBox(confirm, "Confirm G-code target", wxYES_NO | wxNO_DEFAULT | wxICON_WARNING, this) != wxYES)
+        return;
+
     const std::string path = std::string(dialog.GetPath().ToUTF8().data());
     const std::string filename = std::filesystem::u8path(path).filename().u8string();
     RunOperation(index, "Upload", [path](const MoonrakerHttpClient& client) {
