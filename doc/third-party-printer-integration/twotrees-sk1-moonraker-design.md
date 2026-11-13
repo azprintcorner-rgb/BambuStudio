@@ -31,16 +31,16 @@ These are user-reported successful API checks, not a test performed by the build
 3. Keep both configured printer entries visible with independent status and controls.
 4. Test each connection independently using `GET /server/info` and query printer status.
 5. Upload a G-code file to the chosen printer's Moonraker `server/files/upload` endpoint.
-6. Only when the user explicitly presses Start, request print start through `/printer/print/start`.
+6. Only when the user explicitly presses Start, request print start through `POST /printer/print/start?filename=<URL-encoded filename>`.
 7. Refresh printer state on demand and provide pause, resume and stop actions.
 8. Every operation is bound to the card's own immutable printer profile; the other printer's address is never used.
 
 ## API contract
 
 - Connection: `GET /server/info`
-- Printer status: `GET /printer/objects/query?webhooks&print_stats&virtual_sdcard`
+- Printer status: `GET /printer/objects/query?webhooks&print_stats&display_status&virtual_sdcard&toolhead&heater_bed&extruder`
 - Upload: multipart `POST /server/files/upload`, field `file`, optional `root=gcodes`
-- Print start: `POST /printer/print/start` with JSON `{"filename":"<uploaded filename>" }`
+- Print start: `POST /printer/print/start?filename=<URL-encoded uploaded filename>`
 - Pause/resume/cancel: `POST /printer/print/pause`, `/printer/print/resume`, `/printer/print/cancel`
 
 Moonraker API reference: https://moonraker.readthedocs.io/en/latest/web_api/
