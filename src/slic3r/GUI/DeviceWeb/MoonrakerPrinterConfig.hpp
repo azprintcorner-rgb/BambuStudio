@@ -37,7 +37,7 @@ struct MoonrakerPrinterConfig
             return fail("Printer display name cannot contain control characters.");
         if (base_url.empty()) return fail("Moonraker base URL is required.");
 
-        // Only HTTP(S) endpoints are accepted. Credentials must not be embedded
+        // Only plain HTTP endpoints are accepted. Credentials must not be embedded
         // in URLs, and path/query/fragment components are not valid base URLs.
         const bool http = base_url.rfind("http://", 0) == 0;
         if (!http) return fail("URL must start with http://. HTTPS is not supported by this local Moonraker client yet.");
